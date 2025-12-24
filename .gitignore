@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Runtime artifacts
+outputFiles/
+Headless Test/ui_queue.json
+Headless Test/tracking.json
+Headless Test/chrome_profile/
+
+# Local test artifacts
+tests/_tmp_clipboard/

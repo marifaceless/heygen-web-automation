@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HeyGen Queue</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">HeyGen Automation</div>
+        <h1>Build your run</h1>
+        <p class="lede">Create avatar lists, paste long scripts, and launch automation in one flow.</p>
+      </div>
+      <div class="meta">
+        <div class="meta-card">
+          <div class="meta-label">Profile</div>
+          <div class="meta-value">Persistent Chrome</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Status</div>
+          <div class="meta-value">Ready</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel" style="animation-delay: 0.05s;">
+        <h2>Project</h2>
+        <div class="form">
+          <label class="field">
+            <span>Project name</span>
+            <input id="projectName" type="text" placeholder="Example: Product Launch" value="Pasted Scripts">
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-head">
+          <h2>Avatar</h2>
+          <div class="helper">Use exact HeyGen names.</div>
+        </div>
+        <div class="form">
+          <label class="field">
+            <span>Active avatar</span>
+            <select id="avatarSelect"></select>
+          </label>
+
+          <div class="avatar-manager">
+            <div class="avatar-list" id="avatarList"></div>
+            <div class="avatar-add">
+              <input id="avatarInput" type="text" placeholder="Add avatar name">
+              <button id="avatarAddBtn" class="ghost" type="button">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>Video settings</h2>
+        <div class="row">
+          <label class="field">
+            <span>Quality</span>
+            <select id="qualitySelect">
+              <option value="720p" selected>720p</option>
+              <option value="1080p">1080p</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>FPS</span>
+            <select id="fpsSelect">
+              <option value="25" selected>25</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Subtitles</span>
+            <select id="subtitlesSelect">
+              <option value="no" selected>No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel" style="animation-delay: 0.1s;">
+        <div class="queue-header">
+          <div>
+            <h2>Videos</h2>
+            <div class="helper" id="cardCount">1 card</div>
+          </div>
+          <div class="header-actions">
+            <button id="addCardBtn" class="ghost" type="button">Add video</button>
+            <button id="startBtn" class="primary" type="button">Start automation</button>
+          </div>
+        </div>
+
+        <div class="cards" id="cards"></div>
+
+        <div class="status" id="statusBox">Add a video card to begin.</div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.AVATARS = {{ avatars | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
