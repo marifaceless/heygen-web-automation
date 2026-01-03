@@ -33,8 +33,8 @@ TRACKING_FILE = os.path.join(SCRIPT_DIR, "tracking.json")
 # Headless mode - set to True to run invisibly
 RUN_HEADLESS = False       # Change to True once you confirm headless works
 
-# Timeout for polling (in hours)
-POLLING_TIMEOUT_HOURS = 2
+# Poll interval for checking new downloads (in seconds)
+POLLING_SLEEP_SECONDS = 90
 
 
 class HeyGenAutomation:
@@ -352,12 +352,12 @@ class HeyGenAutomation:
     # BROWSER HELPER FUNCTIONS
     # ============================================
     
-    def wait_for_latest_download(self, directory, timeout=600):
-        """Watch a directory for the latest downloaded file"""
-        print(f"🔍 Monitoring {directory} for new files...")
-        end_time = time.time() + timeout
-        
-        while time.time() < end_time:
+    def wait_for_latest_download(self, directory):
+        """Watch a directory until a completed download appears."""
+        print(f"🔍 Monitoring {directory} for new files (no timeout)...")
+        start_time = time.time()
+
+        while True:
             time.sleep(2)
             files = [os.path.join(directory, f) for f in os.listdir(directory)]
             if not files:
@@ -375,7 +375,7 @@ class HeyGenAutomation:
                 size2 = os.path.getsize(latest_file)
                 
                 if size1 == size2 and size1 > 0:
-                    if time.time() - os.path.getmtime(latest_file) < 600: 
+                    if os.path.getmtime(latest_file) >= start_time:
                         return latest_file
             except:
                 pass
@@ -952,7 +952,7 @@ class HeyGenAutomation:
                 print(f"   ✅ Downloaded: {new_filename}")
                 return True
             else:
-                print(f"   ❌ Download timed out")
+                print("   ❌ Download did not complete.")
                 return False
                 
         except Exception as e:
@@ -962,14 +962,14 @@ class HeyGenAutomation:
             return False
     
     def _poll_and_download_loop(self, page, tracking_data):
-        """Long-running poll loop with timeout and folder navigation"""
+        """Long-running poll loop for completed video downloads."""
         
         start_time = time.time()
-        timeout_seconds = POLLING_TIMEOUT_HOURS * 3600
+        cycle = 0
         
-        print(f"\n⏳ Starting polling loop. Timeout: {POLLING_TIMEOUT_HOURS} hours.")
+        print("\n⏳ Starting polling loop. No timeout; press Ctrl+C to stop.")
         
-        while time.time() - start_time < timeout_seconds:
+        while True:
             # Refresh tracking data from file (in case we want to support dynamic updates, 
             # though currently we just use the passed dict. Good practice to reload if passing file path)
             # tracking_data = self.load_tracking() # Optional if we moved to file-based state
@@ -988,7 +988,8 @@ class HeyGenAutomation:
                 print("\n🎉 All videos in all projects downloaded!")
                 break
                 
-            print(f"\n🔄 Cycle Check: {total_pending_all} videos pending across {len(projects_with_pending)} projects")
+            cycle += 1
+            print(f"\n🔄 Cycle {cycle}: {total_pending_all} videos pending across {len(projects_with_pending)} projects")
             print(f"   (Elapsed: {int((time.time()-start_time)/60)} min)")
 
             # Cycle through each project that has pending videos
@@ -1014,11 +1015,8 @@ class HeyGenAutomation:
                     print(f"      ⚠️ Error checking folder: {e}")
 
             # Wait before next full cycle
-            print("\n   💤 Waiting 90s before next cycle...")
-            time.sleep(90)
-            
-        if time.time() - start_time >= timeout_seconds:
-            print("\n❌ Polling timed out (2 hours reached).")
+            print(f"\n   💤 Waiting {POLLING_SLEEP_SECONDS}s before next cycle...")
+            time.sleep(POLLING_SLEEP_SECONDS)
 
         return tracking_data
 
@@ -1047,7 +1045,7 @@ class HeyGenAutomation:
                 time.sleep(2)
                 page.locator('button:has(iconpark-icon[name="download"]):has-text("Download")').click()
                 
-                latest_file = self.wait_for_latest_download(self.output_files_dir, timeout=120)
+                latest_file = self.wait_for_latest_download(self.output_files_dir)
                 if latest_file:
                      # Rename
                     file_extension = os.path.splitext(latest_file)[1] or ".mp4"
@@ -1641,9 +1639,16 @@ class HeyGenAutomation:
                 print(f"📹 Videos submitted: {total_items}")
                 print(f"📋 Tracking file: {self.tracking_file}")
                 print(f"📂 HeyGen folder: {heygen_folder_name}")
-                print("\n💡 Run the script again and select 'Option 2' to check and download videos.")
-                print("   Videos should be ready in approximately 30 minutes.")
+                print("\n📥 Auto-download enabled. Waiting for videos to finish...")
+                print("   This will keep running until all videos download (Ctrl+C to stop).")
                 print("\n" + "="*60 + "\n")
+
+                print("\n" + "="*60)
+                print("📥 PHASE 2: WAITING & DOWNLOADING")
+                print("="*60)
+                tracking_data = self._poll_and_download_loop(page, tracking_data)
+
+                print("\n🎉 UI WORKFLOW COMPLETE!")
 
             except Exception as e:
                 print(f"\n❌ Error during UI queue submission: {e}")

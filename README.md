@@ -60,3 +60,4 @@ Windows:
 
 - Clipboard permissions are requested automatically to improve paste reliability.
 - The automation falls back to direct text insertion if clipboard paste fails.
+- UI submissions keep running to auto-download completed videos into `outputFiles/` (Ctrl+C to stop).

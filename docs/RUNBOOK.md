@@ -2,6 +2,10 @@
 
 ## Common issues
 
+### Auto-download runs indefinitely
+- UI submissions stay alive until all videos are downloaded.
+- Use Ctrl+C to stop the automation manually if needed.
+
 ### Python not found
 - Install Python 3.x or set `HEYGEN_PYTHON`.
 

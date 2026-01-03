@@ -50,6 +50,8 @@ Response:
 ### POST /start
 
 Creates the UI queue and launches automation.
+The automation remains running to auto-download completed videos into `outputFiles/`
+until all items are downloaded (Ctrl+C to stop).
 
 Request:
 ```

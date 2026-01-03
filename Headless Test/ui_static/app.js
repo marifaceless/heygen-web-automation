@@ -280,7 +280,7 @@ startBtn.addEventListener("click", async () => {
 
   startBtn.disabled = true;
   startBtn.textContent = "Starting...";
-  setStatus("Launching automation. Keep this page open.");
+  setStatus("Launching automation. We will auto-download as videos finish.");
 
   try {
     const response = await fetch("/start", {
@@ -294,7 +294,7 @@ startBtn.addEventListener("click", async () => {
       throw new Error(data.error || "Failed to start automation.");
     }
 
-    setStatus("Automation started. Check the terminal for progress.");
+    setStatus("Automation started. Downloads will appear in outputFiles/.");
   } catch (error) {
     setStatus(error.message, true);
   } finally {

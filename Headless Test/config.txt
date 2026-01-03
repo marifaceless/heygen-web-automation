@@ -1,1 +1,1 @@
-available_avatars: Jimmy K
+available_avatars: Jimmy K, Rick Wilson
