@@ -23,6 +23,11 @@
 ### Stuck on login
 - Delete `Headless Test/chrome_profile/` and run the launcher again to re-login.
 
+### Avatar selected but AI Studio doesn't open
+- New HeyGen UI shows a **"Use in video"** dialog after selecting an avatar.
+- The automation now clicks that dialog first; AI Studio opens immediately if the editor is already visible.
+- If the dialog appears but isn't clicked, update selectors in `Headless Test/heygen_automation.py` and re-run.
+
 ## Safe reset
 
 1. Stop the UI and automation.

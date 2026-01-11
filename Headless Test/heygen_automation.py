@@ -569,6 +569,97 @@ class HeyGenAutomation:
             print(f"⚠️ Could not dismiss rating popup: {e}")
             return False
 
+    def _wait_for_ai_studio_editor(self, page, timeout_seconds=8):
+        """Wait for AI Studio script editor to appear."""
+        selectors = [
+            'text=Type your script',
+            'text=Type your script or',
+            'span[data-node-view-content]',
+            'div[contenteditable="true"]',
+        ]
+
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            for selector in selectors:
+                try:
+                    locator = page.locator(selector)
+                    if locator.count() > 0 and locator.first.is_visible():
+                        return True
+                except Exception:
+                    pass
+            time.sleep(0.4)
+        return False
+
+    def _click_first_visible(self, page, selectors, timeout_seconds=8):
+        """Click the first visible selector in the list within the timeout."""
+        deadline = time.time() + timeout_seconds
+        last_error = None
+
+        while time.time() < deadline:
+            for selector in selectors:
+                try:
+                    locator = page.locator(selector)
+                    if locator.count() == 0:
+                        continue
+                    target = locator.first
+                    if not target.is_visible():
+                        continue
+                    target.scroll_into_view_if_needed()
+                    target.click(timeout=2000)
+                    return selector
+                except Exception as e:
+                    last_error = e
+            time.sleep(0.4)
+
+        if last_error:
+            print(f"⚠️ Could not click any selector: {last_error}")
+        return None
+
+    def _open_ai_studio(self, page):
+        """Open AI Studio for the selected avatar, handling UI variations."""
+        self._dismiss_rating_popup(page)
+        time.sleep(1)
+        # New UI: selecting an avatar can drop us directly into AI Studio.
+        if self._wait_for_ai_studio_editor(page, timeout_seconds=5):
+            return True
+
+        direct_selectors = [
+            'button:has-text("Create with AI Studio")',
+            'text=/Create in AI studio/i',
+            'button:has-text("AI Studio")',
+            'a:has-text("AI Studio")',
+            'button:has-text("Create video")',
+            'button:has-text("Create Video")',
+            'button:has-text("Use this avatar")',
+            'button:has-text("Use avatar")',
+        ]
+
+        for selector in direct_selectors:
+            if self._click_first_visible(page, [selector], timeout_seconds=5):
+                if self._wait_for_ai_studio_editor(page):
+                    return True
+
+        menu_triggers = [
+            'button:has-text("Create")',
+            'button:has-text("New")',
+        ]
+
+        if self._click_first_visible(page, menu_triggers, timeout_seconds=4):
+            time.sleep(0.6)
+            menu_selectors = [
+                'text=/Create in AI studio/i',
+                '[role="menuitem"]:has-text("Create in AI studio")',
+                '[role="menuitem"]:has-text("AI Studio")',
+                'button:has-text("AI Studio")',
+                'a:has-text("AI Studio")',
+                'text=/AI Studio/i',
+            ]
+            if self._click_first_visible(page, menu_selectors, timeout_seconds=6):
+                if self._wait_for_ai_studio_editor(page):
+                    return True
+
+        return False
+
     def _create_heygen_folder(self, page, heygen_folder_name):
         """Create a new folder on HeyGen (shared helper)"""
         print("📁 Creating project folder on HeyGen...")
@@ -633,7 +724,9 @@ class HeyGenAutomation:
                                  print(f"      ⚠️ Force click failed: {e_force}")
                                  print("      🧬 Trying JS dispatch click...")
                                  card.dispatch_event('click')
-                             
+
+                         # New UI: confirm avatar selection via dialog
+                         self._confirm_avatar_use_in_video(page)
                          return True
             except Exception as e_outer:
                 # Only print if it's not a common "element not found" type error during iteration
@@ -646,6 +739,34 @@ class HeyGenAutomation:
             time.sleep(1)
             
         print(f"⚠️ Could not find avatar '{avatar_name_to_find}' after scrolling.")
+        return False
+
+    def _confirm_avatar_use_in_video(self, page):
+        """Click the 'Use in video' dialog button if it appears after avatar selection."""
+        dialog = page.locator("div.rc-dialog-wrap")
+        button_selectors = [
+            'button:has-text("Use in video")',
+            'button:has-text("Use this avatar")',
+            'button:has-text("Use avatar")',
+        ]
+
+        deadline = time.time() + 6
+        while time.time() < deadline:
+            try:
+                if dialog.count() > 0 and dialog.first.is_visible():
+                    for selector in button_selectors:
+                        target = dialog.locator(selector)
+                        if target.count() > 0 and target.first.is_visible():
+                            target.first.click()
+                            time.sleep(0.6)
+                            try:
+                                dialog.first.wait_for(state="hidden", timeout=4000)
+                            except Exception:
+                                pass
+                            return True
+            except Exception:
+                pass
+            time.sleep(0.4)
         return False
 
     def _submit_single_video(self, page, scene_folder, script_path, script_filename, config, heygen_folder_name, avatar_name, tracking_data, project_name, script_text=None):
@@ -671,9 +792,9 @@ class HeyGenAutomation:
         
         # Click "Create with AI Studio"
         print("🎬 Opening AI Studio...")
-        self._dismiss_rating_popup(page)
-        page.locator('button:has-text("Create with AI Studio")').click()
-        time.sleep(3)
+        if not self._open_ai_studio(page):
+            print("❌ Could not open AI Studio. UI may have changed.")
+            return False
         print("✅ AI Studio opened")
         
         # Add Script using clipboard paste (ProseMirror requires this)
