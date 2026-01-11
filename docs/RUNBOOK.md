@@ -28,6 +28,11 @@
 - The automation now clicks that dialog first; AI Studio opens immediately if the editor is already visible.
 - If the dialog appears but isn't clicked, update selectors in `Headless Test/heygen_automation.py` and re-run.
 
+### Random modal blocks avatar menu
+- Some sessions show a full-screen `tw-stack-dialog` rating popup after submissions.
+- The automation now dismisses common modal overlays (Esc + Close/Not now/Skip).
+- If you still get stuck, capture a screenshot + HTML and update the overlay selectors.
+
 ## Safe reset
 
 1. Stop the UI and automation.

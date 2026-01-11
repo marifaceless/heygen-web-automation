@@ -445,8 +445,9 @@ class HeyGenAutomation:
         (() => {
           const textNeedle = "How likely are you to recommend us";
           const buttonLabels = ["Not now", "No thanks", "Skip"];
+          const closeLabels = ["Close", "Done", "OK", "Continue"];
           const tryDismiss = () => {
-            const dialogs = document.querySelectorAll('div[role="dialog"]');
+            const dialogs = document.querySelectorAll('div[role="dialog"], div.tw-stack-dialog, div.rc-dialog-wrap');
             for (const dialog of dialogs) {
               const text = dialog.innerText || "";
               if (!text.includes(textNeedle)) {
@@ -459,7 +460,7 @@ class HeyGenAutomation:
                   return true;
                 }
                 const btnText = (btn.innerText || "").trim();
-                return buttonLabels.includes(btnText);
+                return buttonLabels.includes(btnText) || closeLabels.includes(btnText);
               });
               if (target) {
                 target.click();
@@ -495,6 +496,51 @@ class HeyGenAutomation:
     def _sanitize_filename(self, filename):
         """Sanitize filename for Windows (replace invalid chars)"""
         return filename.replace('/', '-').replace(':', '-').replace('\\', '-').replace('|', '-')
+
+    def _dismiss_modal_overlays(self, page, timeout_seconds=4):
+        """Dismiss blocking overlays such as rating popups or modal backdrops."""
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        time.sleep(0.2)
+
+        overlay_selectors = [
+            "div.tw-stack-dialog",
+            "div.rc-dialog-wrap",
+            '[role="dialog"]',
+        ]
+        button_labels = ["Close", "Done", "OK", "Continue", "Not now", "No thanks", "Skip", "Cancel"]
+
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            for selector in overlay_selectors:
+                try:
+                    overlays = page.locator(selector)
+                    count = overlays.count()
+                    if count == 0:
+                        continue
+                    for i in range(min(count, 3)):
+                        overlay = overlays.nth(i)
+                        if not overlay.is_visible():
+                            continue
+                        for label in button_labels:
+                            btn = overlay.locator(f'button:has-text("{label}")')
+                            if btn.count() > 0 and btn.first.is_visible():
+                                btn.first.click()
+                                time.sleep(0.4)
+                                return True
+                        # fallback: click backdrop to dismiss
+                        try:
+                            overlay.click(position={"x": 10, "y": 10})
+                            time.sleep(0.2)
+                            return True
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+            time.sleep(0.3)
+        return False
     
     def _smart_truncate(self, text, limit=25000):
         """
@@ -682,7 +728,8 @@ class HeyGenAutomation:
     def _find_and_select_avatar(self, page, avatar_name_to_find):
         """Find avatar by name, scrolling if necessary"""
         print(f"🔍 Searching for avatar: '{avatar_name_to_find}'...")
-        
+
+        self._dismiss_modal_overlays(page)
         page.locator('[data-testid="my-avatars-menu"]').click()
         time.sleep(2)
         
@@ -792,6 +839,7 @@ class HeyGenAutomation:
         
         # Click "Create with AI Studio"
         print("🎬 Opening AI Studio...")
+        self._dismiss_modal_overlays(page)
         if not self._open_ai_studio(page):
             print("❌ Could not open AI Studio. UI may have changed.")
             return False
@@ -901,6 +949,7 @@ class HeyGenAutomation:
         
         # Click Generate
         print("⚙️ Clicking Generate...")
+        self._dismiss_modal_overlays(page)
         self._dismiss_rating_popup(page)
         try:
             generate_button = page.locator('button:has-text("Generate")')
@@ -976,6 +1025,7 @@ class HeyGenAutomation:
         # Wait for submission to complete
         print("⏳ Waiting for submission...")
         time.sleep(5)
+        self._dismiss_modal_overlays(page)
         
         
         # Add to tracking
