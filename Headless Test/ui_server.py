@@ -6,6 +6,7 @@ import sys
 import subprocess
 import threading
 import webbrowser
+import socket
 
 try:
     from flask import Flask, render_template, request, jsonify
@@ -16,6 +17,24 @@ except ImportError:
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 QUEUE_FILE = os.path.join(SCRIPT_DIR, "ui_queue.json")
 HEYGEN_SCRIPT = os.path.join(SCRIPT_DIR, "heygen_automation.py")
+UI_HOST = os.getenv("HEYGEN_UI_HOST", "127.0.0.1").strip() or "127.0.0.1"
+UI_PORT = int(os.getenv("HEYGEN_UI_PORT", "5000"))
+
+
+def pick_open_port(host, port):
+    """Find an open port for local development servers."""
+    if host not in {"127.0.0.1", "0.0.0.0", "localhost"}:
+        return port
+
+    bind_host = "127.0.0.1" if host in {"127.0.0.1", "localhost"} else "0.0.0.0"
+    for candidate in range(port, port + 20):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind((bind_host, candidate))
+            except OSError:
+                continue
+            return candidate
+    return port
 
 app = Flask(__name__, static_folder="ui_static", template_folder="ui_templates")
 
@@ -141,6 +160,18 @@ def start():
 
 
 if __name__ == "__main__":
-    print("HeyGen UI running at http://127.0.0.1:5000")
-    threading.Timer(0.6, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    requested_port = UI_PORT
+    UI_PORT = pick_open_port(UI_HOST, UI_PORT)
+    if UI_PORT != requested_port:
+        print(f"Port {requested_port} was busy. Using {UI_PORT} instead.")
+
+    ui_url = f"http://{UI_HOST}:{UI_PORT}"
+    if UI_HOST in {"127.0.0.1", "0.0.0.0", "localhost"}:
+        ui_url = f"http://localhost:{UI_PORT}"
+
+    print(f"HeyGen UI running at {ui_url}")
+    if UI_HOST in {"127.0.0.1", "0.0.0.0", "localhost"}:
+        print(f"If it doesn't open, try http://127.0.0.1:{UI_PORT}")
+
+    threading.Timer(0.6, lambda: webbrowser.open(ui_url)).start()
+    app.run(host=UI_HOST, port=UI_PORT, debug=False)

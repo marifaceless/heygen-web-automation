@@ -505,6 +505,30 @@ class HeyGenAutomation:
             pass
         time.sleep(0.2)
 
+        try:
+            page.evaluate(
+                """
+                () => {
+                  const selectors = [
+                    '#x-gist-floating-bottom-right',
+                    '#x-gist-floating-bottom-left',
+                    'div[id^="x-gist-"]',
+                    'iframe.gist-frame',
+                  ];
+                  for (const sel of selectors) {
+                    document.querySelectorAll(sel).forEach((el) => {
+                      el.style.pointerEvents = 'none';
+                      if (el.tagName === 'IFRAME') {
+                        el.style.display = 'none';
+                      }
+                    });
+                  }
+                }
+                """
+            )
+        except Exception:
+            pass
+
         overlay_selectors = [
             "div.tw-stack-dialog",
             "div.rc-dialog-wrap",
@@ -636,6 +660,10 @@ class HeyGenAutomation:
             time.sleep(0.4)
         return False
 
+    def _wait_for_script_editor(self, page, timeout_seconds=8):
+        """Wait for the script editor to appear (new UI or AI Studio)."""
+        return self._wait_for_ai_studio_editor(page, timeout_seconds=timeout_seconds)
+
     def _click_first_visible(self, page, selectors, timeout_seconds=8):
         """Click the first visible selector in the list within the timeout."""
         deadline = time.time() + timeout_seconds
@@ -666,7 +694,7 @@ class HeyGenAutomation:
         self._dismiss_rating_popup(page)
         time.sleep(1)
         # New UI: selecting an avatar can drop us directly into AI Studio.
-        if self._wait_for_ai_studio_editor(page, timeout_seconds=5):
+        if self._wait_for_script_editor(page, timeout_seconds=5):
             return True
 
         direct_selectors = [
@@ -701,8 +729,94 @@ class HeyGenAutomation:
                 'text=/AI Studio/i',
             ]
             if self._click_first_visible(page, menu_selectors, timeout_seconds=6):
-                if self._wait_for_ai_studio_editor(page):
+                if self._wait_for_script_editor(page):
                     return True
+
+        return False
+
+    def _open_video_editor(self, page, avatar_name=None):
+        """Open the standard video editor via 'Use in video' (avoid AI Studio)."""
+        self._dismiss_rating_popup(page)
+        time.sleep(1)
+
+        if self._wait_for_script_editor(page, timeout_seconds=5):
+            return True
+
+        action_selectors = [
+            'button:has-text("Use in video")',
+            'button:has-text("Use this avatar")',
+            'button:has-text("Use avatar")',
+            'button:has-text("Create video")',
+            'button:has-text("Create Video")',
+            'text=/Create video/i',
+        ]
+
+        if self._click_first_visible(page, action_selectors, timeout_seconds=6):
+            if self._wait_for_script_editor(page, timeout_seconds=8):
+                return True
+
+        card = None
+        if avatar_name:
+            xpath_selector = (
+                f'//div[contains(@class, "tw-rounded-[20px]") and '
+                f'.//text()[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), '
+                f'"{avatar_name.lower()}")]]'
+            )
+            card = page.locator(xpath_selector).first
+            if card.count() > 0:
+                try:
+                    card.scroll_into_view_if_needed()
+                    card.hover()
+                    time.sleep(0.6)
+                except Exception:
+                    pass
+
+        # New UI: use the overlay "create-video" icon on the avatar card.
+        create_video_btn = page.locator('button:has(iconpark-icon[name="create-video"])').first
+        if card is not None and card.count() > 0:
+            scoped_btn = card.locator('button:has(iconpark-icon[name="create-video"])').first
+            if scoped_btn.count() > 0:
+                create_video_btn = scoped_btn
+        if create_video_btn.count() > 0:
+            try:
+                create_video_btn.scroll_into_view_if_needed()
+                time.sleep(0.3)
+                create_video_btn.click()
+                if self._wait_for_script_editor(page, timeout_seconds=8):
+                    return True
+            except Exception:
+                try:
+                    create_video_btn.click(force=True)
+                    if self._wait_for_script_editor(page, timeout_seconds=8):
+                        return True
+                except Exception:
+                    pass
+
+        # Try overflow menu on the avatar card.
+        more_btn = page.locator('button:has(iconpark-icon[name="more-level"])').first
+        if card is not None and card.count() > 0:
+            scoped_more = card.locator('button:has(iconpark-icon[name="more-level"])').first
+            if scoped_more.count() > 0:
+                more_btn = scoped_more
+        if more_btn.count() > 0:
+            try:
+                more_btn.click()
+                time.sleep(0.6)
+                menu_selectors = [
+                    'div[role="menuitem"]:has-text("Use in video")',
+                    'div[role="menuitem"]:has-text("Create video")',
+                    'div[role="menuitem"]:has-text("Create Video")',
+                    'div[role="menuitem"]:has-text("AI Studio")',
+                ]
+                if self._click_first_visible(page, menu_selectors, timeout_seconds=5):
+                    if self._wait_for_script_editor(page, timeout_seconds=8):
+                        return True
+            except Exception:
+                pass
+
+        self._confirm_avatar_use_in_video(page)
+        if self._wait_for_script_editor(page, timeout_seconds=6):
+            return True
 
         return False
 
@@ -729,9 +843,36 @@ class HeyGenAutomation:
         """Find avatar by name, scrolling if necessary"""
         print(f"🔍 Searching for avatar: '{avatar_name_to_find}'...")
 
+        def open_avatar_menu():
+            selectors = [
+                '[data-testid="my-avatars-menu"]',
+                'button:has-text("My avatars")',
+                'button:has-text("My Avatars")',
+                'a:has-text("Avatars")',
+                'button:has-text("Avatars")',
+            ]
+            for selector in selectors:
+                try:
+                    locator = page.locator(selector).first
+                    locator.wait_for(state="visible", timeout=5000)
+                    locator.click()
+                    time.sleep(1.5)
+                    return True
+                except Exception:
+                    continue
+            return False
+
         self._dismiss_modal_overlays(page)
-        page.locator('[data-testid="my-avatars-menu"]').click()
-        time.sleep(2)
+        if not open_avatar_menu():
+            try:
+                page.goto("https://app.heygen.com/avatars", wait_until="domcontentloaded")
+                time.sleep(2)
+            except Exception:
+                pass
+            self._dismiss_modal_overlays(page)
+            if not open_avatar_menu():
+                print("⚠️ Could not open avatar menu.")
+                return False
         
         # Try to find exactly matching text first
         start_time = time.time()
@@ -837,13 +978,13 @@ class HeyGenAutomation:
         time.sleep(2)
         print("✅ Avatar selected")
         
-        # Click "Create with AI Studio"
-        print("🎬 Opening AI Studio...")
+        # Open the standard video editor (new UI flow)
+        print("🎬 Opening video editor...")
         self._dismiss_modal_overlays(page)
-        if not self._open_ai_studio(page):
-            print("❌ Could not open AI Studio. UI may have changed.")
+        if not self._open_video_editor(page, avatar_name):
+            print("❌ Could not open video editor. UI may have changed.")
             return False
-        print("✅ AI Studio opened")
+        print("✅ Video editor opened")
         
         # Add Script using clipboard paste (ProseMirror requires this)
         print("📝 Adding script...")
@@ -893,6 +1034,16 @@ class HeyGenAutomation:
         
         page.locator('//input[@placeholder="Untitled Video"]').fill(video_name)
         print(f"🏷️ Video named: '{video_name}'")
+
+        # Ensure 16:9 aspect ratio in the new editor
+        try:
+            ratio_btn = page.locator('button:has-text("16:9")').first
+            if ratio_btn.count() > 0 and ratio_btn.is_visible():
+                ratio_btn.click()
+                time.sleep(0.4)
+                print("✅ Aspect ratio set to 16:9")
+        except Exception:
+            pass
         
         # Select "Apollo" / Engine 4.0 - Unlimited option
         print("🔄 Checking Avatar Engine (Unlimited)...")

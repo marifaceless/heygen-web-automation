@@ -47,6 +47,8 @@ Windows:
 - `HEYGEN_PYTHON`: Python command used by launchers
 - `HEYGEN_BROWSER_CHANNEL`: Browser channel for Playwright (default: `chrome`)
   - Set to `chromium` or `none` to use bundled Chromium
+- `HEYGEN_UI_HOST`: UI bind host (default: `127.0.0.1`)
+- `HEYGEN_UI_PORT`: UI port (default: `5000`, auto-increments if busy)
 
 ## Documentation
 
@@ -58,6 +60,7 @@ Windows:
 
 ## Notes
 
+- `heygen.command` creates/uses a local `.venv` if system Python is externally managed.
 - Clipboard permissions are requested automatically to improve paste reliability.
 - The automation falls back to direct text insertion if clipboard paste fails.
 - UI submissions keep running to auto-download completed videos into `outputFiles/` (Ctrl+C to stop).

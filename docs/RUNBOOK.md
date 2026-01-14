@@ -13,6 +13,13 @@
 - Run: `python -m pip install playwright`
 - Then: `python -m playwright install`
 
+### pip install fails with "externally-managed-environment" (PEP 668)
+- Use `heygen.command` to auto-create a local `.venv`, or create one manually:
+  - `python3 -m venv .venv`
+  - `source .venv/bin/activate`
+  - `python -m pip install playwright flask`
+  - `python -m playwright install`
+
 ### Chrome not found
 - Install Chrome, or set `HEYGEN_BROWSER_CHANNEL=chromium` to use bundled Chromium.
 
